@@ -1161,7 +1161,7 @@ func (node *Update) doc(p *PrettyCfg) pretty.Doc {
 }
 
 func (node *Delete) doc(p *PrettyCfg) pretty.Doc {
-	items := make([]pretty.TableRow, 0, 6)
+	items := make([]pretty.TableRow, 0, 7)
 	items = append(items,
 		node.With.docRow(p),
 		p.row("DELETE FROM", p.Doc(node.Table)))
