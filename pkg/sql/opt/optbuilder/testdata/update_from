@@ -77,7 +77,7 @@ update abc
                 └── other.tableoid:16
 
 # Check if UPDATE FROM works well with RETURNING expressions that reference the FROM tables.
-opt
+build
 UPDATE abc
 SET
   b = old.b + 1, c = old.c + 2
@@ -88,28 +88,52 @@ WHERE
 RETURNING
   abc.a, abc.b AS new_b, old.b as old_b, abc.c as new_c, old.c as old_c
 ----
-update abc
+project
  ├── columns: a:1!null new_b:2 old_b:12 new_c:3 old_c:13
- ├── fetch columns: abc.a:6 abc.b:7 abc.c:8
- ├── update-mapping:
- │    ├── b_new:16 => abc.b:2
- │    └── c_new:17 => abc.c:3
- └── project
-      ├── columns: b_new:16 c_new:17 abc.a:6!null abc.b:7 abc.c:8 old.b:12 old.c:13
-      ├── inner-join (merge)
-      │    ├── columns: abc.a:6!null abc.b:7 abc.c:8 old.a:11!null old.b:12 old.c:13
-      │    ├── left ordering: +6
-      │    ├── right ordering: +11
-      │    ├── scan abc
-      │    │    ├── columns: abc.a:6!null abc.b:7 abc.c:8
-      │    │    └── ordering: +6
-      │    ├── scan abc [as=old]
-      │    │    ├── columns: old.a:11!null old.b:12 old.c:13
-      │    │    └── ordering: +11
-      │    └── filters (true)
-      └── projections
-           ├── old.b:12 + 1 [as=b_new:16]
-           └── old.c:13 + 2 [as=c_new:17]
+ └── update abc
+      ├── columns: abc.a:1!null abc.b:2 abc.c:3 old.a:11 old.b:12 old.c:13 old.crdb_internal_mvcc_timestamp:14 old.tableoid:15
+      ├── fetch columns: abc.a:6 abc.b:7 abc.c:8
+      ├── update-mapping:
+      │    ├── b_new:16 => abc.b:2
+      │    └── c_new:17 => abc.c:3
+      └── project
+           ├── columns: b_new:16 c_new:17 abc.a:6!null abc.b:7 abc.c:8 abc.crdb_internal_mvcc_timestamp:9 abc.tableoid:10 old.a:11!null old.b:12 old.c:13 old.crdb_internal_mvcc_timestamp:14 old.tableoid:15
+           ├── distinct-on
+           │    ├── columns: abc.a:6!null abc.b:7 abc.c:8 abc.crdb_internal_mvcc_timestamp:9 abc.tableoid:10 old.a:11!null old.b:12 old.c:13 old.crdb_internal_mvcc_timestamp:14 old.tableoid:15
+           │    ├── grouping columns: abc.a:6!null
+           │    ├── select
+           │    │    ├── columns: abc.a:6!null abc.b:7 abc.c:8 abc.crdb_internal_mvcc_timestamp:9 abc.tableoid:10 old.a:11!null old.b:12 old.c:13 old.crdb_internal_mvcc_timestamp:14 old.tableoid:15
+           │    │    ├── inner-join (cross)
+           │    │    │    ├── columns: abc.a:6!null abc.b:7 abc.c:8 abc.crdb_internal_mvcc_timestamp:9 abc.tableoid:10 old.a:11!null old.b:12 old.c:13 old.crdb_internal_mvcc_timestamp:14 old.tableoid:15
+           │    │    │    ├── scan abc
+           │    │    │    │    └── columns: abc.a:6!null abc.b:7 abc.c:8 abc.crdb_internal_mvcc_timestamp:9 abc.tableoid:10
+           │    │    │    ├── scan abc [as=old]
+           │    │    │    │    └── columns: old.a:11!null old.b:12 old.c:13 old.crdb_internal_mvcc_timestamp:14 old.tableoid:15
+           │    │    │    └── filters (true)
+           │    │    └── filters
+           │    │         └── abc.a:6 = old.a:11
+           │    └── aggregations
+           │         ├── first-agg [as=abc.b:7]
+           │         │    └── abc.b:7
+           │         ├── first-agg [as=abc.c:8]
+           │         │    └── abc.c:8
+           │         ├── first-agg [as=abc.crdb_internal_mvcc_timestamp:9]
+           │         │    └── abc.crdb_internal_mvcc_timestamp:9
+           │         ├── first-agg [as=abc.tableoid:10]
+           │         │    └── abc.tableoid:10
+           │         ├── first-agg [as=old.a:11]
+           │         │    └── old.a:11
+           │         ├── first-agg [as=old.b:12]
+           │         │    └── old.b:12
+           │         ├── first-agg [as=old.c:13]
+           │         │    └── old.c:13
+           │         ├── first-agg [as=old.crdb_internal_mvcc_timestamp:14]
+           │         │    └── old.crdb_internal_mvcc_timestamp:14
+           │         └── first-agg [as=old.tableoid:15]
+           │              └── old.tableoid:15
+           └── projections
+                ├── old.b:12 + 1 [as=b_new:16]
+                └── old.c:13 + 2 [as=c_new:17]
 
 # Check if RETURNING * returns everything
 opt

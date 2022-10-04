@@ -1857,6 +1857,13 @@ func TestLogic_tenant(
 	runLogicTest(t, "tenant")
 }
 
+func TestLogic_test1(
+	t *testing.T,
+) {
+	defer leaktest.AfterTest(t)()
+	runLogicTest(t, "test1")
+}
+
 func TestLogic_time(
 	t *testing.T,
 ) {

@@ -1863,6 +1863,13 @@ func TestTenantLogic_tenant_slow_repro(
 	runLogicTest(t, "tenant_slow_repro")
 }
 
+func TestTenantLogic_test1(
+	t *testing.T,
+) {
+	defer leaktest.AfterTest(t)()
+	runLogicTest(t, "test1")
+}
+
 func TestTenantLogic_time(
 	t *testing.T,
 ) {

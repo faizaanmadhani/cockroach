@@ -1,0 +1,20 @@
+statement ok
+CREATE TABLE u_a (
+    a INT NOT NULL PRIMARY KEY,
+    b STRING,
+    c INT
+);
+
+statement ok
+CREATE TABLE u_b (
+  a INT NOT NULL PRIMARY KEY,
+  b STRING
+);
+
+query ITI colnames,rowsort
+DELETE FROM u_a USING u_b WHERE u_a.a = u_b.a RETURNING u_b.a, u_a.a
+----
+
+query ITI
+SELECT * FROM u_a;
+----

@@ -421,6 +421,9 @@ func (mb *mutationBuilder) buildInputForDelete(
 		false, /* disableNotVisibleIndex */
 	)
 
+	// Set list of columns that will be fetched by the input expression.
+	mb.setFetchColIDs(mb.fetchScope.cols)
+
 	// USING
 	usingClausePresent := len(using) > 0
 	if usingClausePresent {
@@ -466,9 +469,6 @@ func (mb *mutationBuilder) buildInputForDelete(
 	}
 
 	mb.outScope = projectionsScope
-
-	// Set list of columns that will be fetched by the input expression.
-	mb.setFetchColIDs(mb.outScope.cols)
 }
 
 // addTargetColsByName adds one target column for each of the names in the given

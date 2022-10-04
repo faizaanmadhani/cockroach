@@ -1680,6 +1680,7 @@ func (ef *execFactory) ConstructDelete(
 	table cat.Table,
 	fetchColOrdSet exec.TableColumnOrdinalSet,
 	returnColOrdSet exec.TableColumnOrdinalSet,
+	passthrough colinfo.ResultColumns,
 	autoCommit bool,
 ) (exec.Node, error) {
 	// Derive table and column descriptors.
@@ -1708,6 +1709,7 @@ func (ef *execFactory) ConstructDelete(
 		run: deleteRun{
 			td:                        tableDeleter{rd: rd, alloc: ef.getDatumAlloc()},
 			partialIndexDelValsOffset: len(rd.FetchCols),
+			numPassthrough:            len(passthrough),
 		},
 	}
 

@@ -668,6 +668,8 @@ func (f *ExprFmtCtx) formatRelational(e RelExpr, tp treeprinter.Node) {
 				tp.Child("columns: <none>")
 			}
 			f.formatOptionalColList(e, tp, "fetch columns:", t.FetchCols)
+			f.formatMutationCols(e, tp, "return-mapping", t.ReturnCols, t.Table)
+			f.formatOptionalColList(e, tp, "passthrough columns", opt.OptionalColList(t.PassthroughCols))
 			f.formatOptionalColList(e, tp, "partial index del columns:", t.PartialIndexDelCols)
 			f.formatMutationCommon(tp, &t.MutationPrivate)
 		}

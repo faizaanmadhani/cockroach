@@ -1,0 +1,88 @@
+exec-ddl
+CREATE TABLE abcde (
+    a INT NOT NULL,
+    b INT,
+    c INT DEFAULT (10),
+    d INT AS (b + c + 1) STORED,
+    e INT AS (a) STORED
+)
+----
+
+exec-ddl
+CREATE TABLE xyz (
+    x TEXT PRIMARY KEY,
+    y INT8,
+    z FLOAT8
+)
+----
+
+exec-ddl
+CREATE TABLE uv (
+    u DECIMAL,
+    v BYTES
+)
+----
+
+exec-ddl
+CREATE TABLE mutation (
+    m INT PRIMARY KEY,
+    n INT,
+    "o:write-only" INT DEFAULT(10),
+    "p:delete-only" INT AS (o + n) STORED
+)
+----
+
+exec-ddl
+CREATE TABLE u_a (
+    a INT NOT NULL PRIMARY KEY,
+    b STRING,
+    c INT
+)
+----
+
+exec-ddl
+CREATE TABLE u_b (
+  a INT NOT NULL PRIMARY KEY,
+  b STRING
+)
+----
+
+exec-ddl
+CREATE TABLE u_c (
+  a INT NOT NULL PRIMARY KEY,
+  b STRING,
+  c INT
+)
+----
+
+exec-ddl
+CREATE TABLE u_e (
+  a INT NOT NULL,
+  b INT
+)
+----
+
+build
+DELETE FROM u_a USING abcde WHERE abcde.a = u_a.a RETURNING abcde.rowid
+----
+project
+ ├── columns: rowid:16
+ └── delete u_a
+      ├── columns: u_a.a:1!null u_a.b:2 u_a.c:3 abcde.a:11 abcde.b:12 abcde.c:13 d:14 e:15 rowid:16 abcde.crdb_internal_mvcc_timestamp:17 abcde.tableoid:18
+      ├── fetch columns: u_a.a:6 u_a.b:7 u_a.c:8
+      └── select
+           ├── columns: u_a.a:6!null u_a.b:7 u_a.c:8 u_a.crdb_internal_mvcc_timestamp:9 u_a.tableoid:10 abcde.a:11!null abcde.b:12 abcde.c:13 d:14 e:15 rowid:16!null abcde.crdb_internal_mvcc_timestamp:17 abcde.tableoid:18
+           ├── inner-join (cross)
+           │    ├── columns: u_a.a:6!null u_a.b:7 u_a.c:8 u_a.crdb_internal_mvcc_timestamp:9 u_a.tableoid:10 abcde.a:11!null abcde.b:12 abcde.c:13 d:14 e:15 rowid:16!null abcde.crdb_internal_mvcc_timestamp:17 abcde.tableoid:18
+           │    ├── scan u_a
+           │    │    └── columns: u_a.a:6!null u_a.b:7 u_a.c:8 u_a.crdb_internal_mvcc_timestamp:9 u_a.tableoid:10
+           │    ├── scan abcde
+           │    │    ├── columns: abcde.a:11!null abcde.b:12 abcde.c:13 d:14 e:15 rowid:16!null abcde.crdb_internal_mvcc_timestamp:17 abcde.tableoid:18
+           │    │    └── computed column expressions
+           │    │         ├── d:14
+           │    │         │    └── (abcde.b:12 + abcde.c:13) + 1
+           │    │         └── e:15
+           │    │              └── abcde.a:11
+           │    └── filters (true)
+           └── filters
+                └── abcde.a:11 = u_a.a:6

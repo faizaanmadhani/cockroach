@@ -1,0 +1,111 @@
+statement ok
+CREATE TABLE u_a (
+    a INT NOT NULL PRIMARY KEY,
+    b STRING,
+    c INT
+);
+
+statement ok
+CREATE TABLE u_b (
+  a INT NOT NULL PRIMARY KEY,
+  b STRING
+);
+
+statement ok
+CREATE TABLE u_c (
+  a INT NOT NULL PRIMARY KEY,
+  b STRING,
+  c INT
+);
+
+statement ok
+CREATE TABLE u_e (
+  a INT NOT NULL,
+  b INT
+);
+
+statement ok
+INSERT INTO u_a VALUES (1, 'a', 10), (2, 'b', 20), (3, 'c', 30), (4, 'd', 40);
+
+statement ok
+INSERT INTO u_b VALUES (10, 'a'), (20, 'b'), (30, 'c'), (40, 'd')
+
+query ITI
+SELECT * FROM u_a;
+----
+1  a  10
+2  b  20
+3  c  30
+4  d  40
+
+#Test a join with a filter
+statement ok
+DELETE FROM u_a USING u_b WHERE c = u_b.a AND u_b.b = 'd';
+
+query ITI
+SELECT * FROM u_a;
+----
+1  a  10
+2  b  20
+3  c  30
+
+# Test a self join
+statement ok
+INSERT INTO u_a VALUES (5, 'd', 5), (6, 'e', 6);
+
+query ITI
+select * FROM u_a;
+----
+1  a  10
+2  b  20
+3  c  30
+5  d  5
+6  e  6
+
+statement ok
+DELETE FROM u_a USING u_a u_a2 WHERE u_a.a = u_a2.c;
+
+query ITI
+SELECT * FROM u_a;
+----
+1  a  10
+2  b  20
+3  c  30
+
+# Test when USING uses multiple tables
+
+statement ok
+INSERT INTO u_c VALUES (30, 'a', 1);
+
+query ITI
+SELECT * FROM u_a;
+----
+1  a  10
+2  b  20
+3  c  30
+
+statement ok
+DELETE FROM u_a USING u_b, u_c WHERE u_a.c = u_b.a AND u_a.c = u_c.a
+
+query ITI
+SELECT * FROM u_a;
+----
+1  a  10
+2  b  20
+
+query ITIIT colnames
+SELECT * FROM u_a AS foo JOIN u_b AS bar ON bar.a = 30 ORDER BY bar.a LIMIT 5;
+----
+
+statement ok
+DELETE FROM u_a AS foo USING u_b AS bar WHERE bar.a = 30 ORDER BY bar.a LIMIT 5;
+
+query ITI
+SELECT * FROM u_a;
+----
+
+
+
+
+
+

@@ -1,0 +1,169 @@
+exec-ddl
+CREATE TABLE abcde (
+    a INT NOT NULL,
+    b INT,
+    c INT DEFAULT (10),
+    d INT AS (b + c + 1) STORED,
+    e INT AS (a) STORED
+)
+----
+
+exec-ddl
+CREATE TABLE xyz (
+    x TEXT PRIMARY KEY,
+    y INT8,
+    z FLOAT8
+)
+----
+
+exec-ddl
+CREATE TABLE uv (
+    u DECIMAL,
+    v BYTES
+)
+----
+
+exec-ddl
+CREATE TABLE mutation (
+    m INT PRIMARY KEY,
+    n INT,
+    "o:write-only" INT DEFAULT(10),
+    "p:delete-only" INT AS (o + n) STORED
+)
+----
+
+exec-ddl
+CREATE TABLE u_a (
+    a INT NOT NULL PRIMARY KEY,
+    b STRING,
+    c INT
+)
+----
+
+exec-ddl
+CREATE TABLE u_b (
+  a INT NOT NULL PRIMARY KEY,
+  b STRING
+)
+----
+
+exec-ddl
+CREATE TABLE u_c (
+  a INT NOT NULL PRIMARY KEY,
+  b STRING,
+  c INT
+)
+----
+
+exec-ddl
+CREATE TABLE u_e (
+  a INT NOT NULL,
+  b INT
+)
+----
+
+build
+DELETE FROM abcde USING u_a WHERE abcde.a = u_a.a RETURNING abcde.rowid
+----
+project
+ ├── columns: rowid:6!null
+ └── delete abcde
+      ├── columns: abcde.a:1!null abcde.b:2 abcde.c:3 d:4 e:5 rowid:6!null u_a.a:17 u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+      ├── fetch columns: abcde.a:9 abcde.b:10 abcde.c:11 d:12 e:13 rowid:14
+      └── select
+           ├── columns: abcde.a:9!null abcde.b:10 abcde.c:11 d:12 e:13 rowid:14!null abcde.crdb_internal_mvcc_timestamp:15 abcde.tableoid:16 u_a.a:17!null u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+           ├── inner-join (cross)
+           │    ├── columns: abcde.a:9!null abcde.b:10 abcde.c:11 d:12 e:13 rowid:14!null abcde.crdb_internal_mvcc_timestamp:15 abcde.tableoid:16 u_a.a:17!null u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+           │    ├── scan abcde
+           │    │    ├── columns: abcde.a:9!null abcde.b:10 abcde.c:11 d:12 e:13 rowid:14!null abcde.crdb_internal_mvcc_timestamp:15 abcde.tableoid:16
+           │    │    └── computed column expressions
+           │    │         ├── d:12
+           │    │         │    └── (abcde.b:10 + abcde.c:11) + 1
+           │    │         └── e:13
+           │    │              └── abcde.a:9
+           │    ├── scan u_a
+           │    │    └── columns: u_a.a:17!null u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+           │    └── filters (true)
+           └── filters
+                └── abcde.a:9 = u_a.a:17
+
+build
+UPDATE abcde SET a = 1 FROM u_a WHERE abcde.a = u_a.a RETURNING abcde.rowid
+----
+project
+ ├── columns: rowid:6!null
+ └── update abcde
+      ├── columns: abcde.a:1!null abcde.b:2 abcde.c:3 d:4 e:5!null rowid:6!null u_a.a:17 u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+      ├── fetch columns: abcde.a:9 abcde.b:10 abcde.c:11 d:12 e:13 rowid:14
+      ├── update-mapping:
+      │    ├── a_new:22 => abcde.a:1
+      │    └── a_new:22 => e:5
+      └── project
+           ├── columns: d_comp:23 abcde.a:9!null abcde.b:10 abcde.c:11 d:12 e:13 rowid:14!null abcde.crdb_internal_mvcc_timestamp:15 abcde.tableoid:16 u_a.a:17!null u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21 a_new:22!null
+           ├── project
+           │    ├── columns: a_new:22!null abcde.a:9!null abcde.b:10 abcde.c:11 d:12 e:13 rowid:14!null abcde.crdb_internal_mvcc_timestamp:15 abcde.tableoid:16 u_a.a:17!null u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+           │    ├── select
+           │    │    ├── columns: abcde.a:9!null abcde.b:10 abcde.c:11 d:12 e:13 rowid:14!null abcde.crdb_internal_mvcc_timestamp:15 abcde.tableoid:16 u_a.a:17!null u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+           │    │    ├── inner-join (cross)
+           │    │    │    ├── columns: abcde.a:9!null abcde.b:10 abcde.c:11 d:12 e:13 rowid:14!null abcde.crdb_internal_mvcc_timestamp:15 abcde.tableoid:16 u_a.a:17!null u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+           │    │    │    ├── scan abcde
+           │    │    │    │    ├── columns: abcde.a:9!null abcde.b:10 abcde.c:11 d:12 e:13 rowid:14!null abcde.crdb_internal_mvcc_timestamp:15 abcde.tableoid:16
+           │    │    │    │    └── computed column expressions
+           │    │    │    │         ├── d:12
+           │    │    │    │         │    └── (abcde.b:10 + abcde.c:11) + 1
+           │    │    │    │         └── e:13
+           │    │    │    │              └── abcde.a:9
+           │    │    │    ├── scan u_a
+           │    │    │    │    └── columns: u_a.a:17!null u_a.b:18 u_a.c:19 u_a.crdb_internal_mvcc_timestamp:20 u_a.tableoid:21
+           │    │    │    └── filters (true)
+           │    │    └── filters
+           │    │         └── abcde.a:9 = u_a.a:17
+           │    └── projections
+           │         └── 1 [as=a_new:22]
+           └── projections
+                └── (abcde.b:10 + abcde.c:11) + 1 [as=d_comp:23]
+
+
+build
+DELETE FROM abcde WHERE true;
+----
+delete abcde
+ ├── columns: <none>
+ ├── fetch columns: a:9 b:10 c:11 d:12 e:13 rowid:14
+ └── select
+      ├── columns: a:9!null b:10 c:11 d:12 e:13 rowid:14!null crdb_internal_mvcc_timestamp:15 tableoid:16
+      ├── scan abcde
+      │    ├── columns: a:9!null b:10 c:11 d:12 e:13 rowid:14!null crdb_internal_mvcc_timestamp:15 tableoid:16
+      │    └── computed column expressions
+      │         ├── d:12
+      │         │    └── (b:10 + c:11) + 1
+      │         └── e:13
+      │              └── a:9
+      └── filters
+           └── true
+
+build
+DELETE FROM u_a USING abcde WHERE u_a.a = abcde.a RETURNING abcde.rowid
+----
+project
+ ├── columns: rowid:16
+ └── delete u_a
+      ├── columns: u_a.a:1!null u_a.b:2 u_a.c:3 abcde.a:11 abcde.b:12 abcde.c:13 d:14 e:15 rowid:16 abcde.crdb_internal_mvcc_timestamp:17 abcde.tableoid:18
+      ├── fetch columns: u_a.a:6 u_a.b:7 u_a.c:8
+      └── select
+           ├── columns: u_a.a:6!null u_a.b:7 u_a.c:8 u_a.crdb_internal_mvcc_timestamp:9 u_a.tableoid:10 abcde.a:11!null abcde.b:12 abcde.c:13 d:14 e:15 rowid:16!null abcde.crdb_internal_mvcc_timestamp:17 abcde.tableoid:18
+           ├── inner-join (cross)
+           │    ├── columns: u_a.a:6!null u_a.b:7 u_a.c:8 u_a.crdb_internal_mvcc_timestamp:9 u_a.tableoid:10 abcde.a:11!null abcde.b:12 abcde.c:13 d:14 e:15 rowid:16!null abcde.crdb_internal_mvcc_timestamp:17 abcde.tableoid:18
+           │    ├── scan u_a
+           │    │    └── columns: u_a.a:6!null u_a.b:7 u_a.c:8 u_a.crdb_internal_mvcc_timestamp:9 u_a.tableoid:10
+           │    ├── scan abcde
+           │    │    ├── columns: abcde.a:11!null abcde.b:12 abcde.c:13 d:14 e:15 rowid:16!null abcde.crdb_internal_mvcc_timestamp:17 abcde.tableoid:18
+           │    │    └── computed column expressions
+           │    │         ├── d:14
+           │    │         │    └── (abcde.b:12 + abcde.c:13) + 1
+           │    │         └── e:15
+           │    │              └── abcde.a:11
+           │    └── filters (true)
+           └── filters
+                └── u_a.a:6 = abcde.a:11
+
