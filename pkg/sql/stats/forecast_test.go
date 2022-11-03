@@ -608,9 +608,205 @@ func TestForecastColumnStatistics(t *testing.T) {
 	}
 }
 
+// TestMergeStatistics calls mergeStatistics with various observed
+// stats, that include full statistics and partial statistics
+func TestMergeStatistics(t *testing.T) {
+	testCases := []struct {
+		initial  *testStat
+		partial  *testStat
+		expected *testStat
+		err      bool
+	}{
+		{
+			// Single partial at the extremes of full
+			initial: &testStat{
+				at: 1, row: 14, dist: 9, null: 4, size: 1,
+				hist: testHistogram{{0, 0, 0, 30}, {1, 9, 7, 40}},
+			},
+			partial: &testStat{
+				at: 1, row: 19, dist: 3, null: 0, size: 1,
+				hist:    testHistogram{{3, 2, 0, 30}, {3, 11, 8, 50}},
+				partial: "(a < 30::INT8) OR ((a > 40::INT8) OR (a IS NULL))",
+			},
+			expected: &testStat{
+				at: 1, row: 29, dist: 18, null: 0, size: 1,
+				hist: testHistogram{{3, 2, 0, 30}, {1, 9, 7, 40}, {3, 11, 8, 50}},
+			},
+		},
+		{
+			// Multiple buckets at the extremes, overlap at lower and upper bound
+			// but buckets line up
+			initial: &testStat{
+				at: 2, row: 12, dist: 6, null: 0, size: 2,
+				hist: testHistogram{
+					{1, 1, 0, 1},
+					{1, 1, 0, 2},
+					{1, 1, 0, 3},
+					{1, 1, 0, 4},
+					{1, 1, 0, 5},
+					{1, 1, 0, 6},
+				},
+			},
+			partial: &testStat{
+				at: 2, row: 24, dist: 3, null: 0, size: 2,
+				hist: testHistogram{
+					{2, 2, 2, 0},
+					{2, 2, 2, 1},
+					{2, 2, 2, 2},
+					{2, 2, 2, 5},
+					{2, 2, 2, 7},
+				},
+			},
+			expected: &testStat{
+				at: 2, row: 28, dist: 20, null: 0, size: 2,
+				hist: testHistogram{
+					{2, 2, 2, 0},
+					{2, 2, 2, 1},
+					{2, 2, 2, 2},
+					{1, 1, 0, 3},
+					{1, 1, 0, 4},
+					{2, 2, 2, 5},
+					{2, 2, 2, 7},
+				},
+			},
+		},
+		{
+			// Multiple buckets at lower bound, overlap at lower
+			// bound with mid-bucket overlap
+			initial: &testStat{
+				at: 2, row: 24, dist: 12, null: 0, size: 3,
+				hist: testHistogram{
+					{3, 3, 2, 5},
+					{3, 3, 2, 8},
+					{3, 3, 2, 12},
+					{3, 3, 2, 15},
+				},
+			},
+			partial: &testStat{
+				at: 2, row: 60, dist: 35, null: 0, size: 5,
+				hist: testHistogram{
+					{4, 4, 4, 3},
+					{5, 5, 5, 4},
+					{6, 6, 6, 7},
+					{7, 7, 7, 9},
+					{8, 8, 8, 11},
+				},
+			},
+			expected: &testStat{
+				at: 2, row: 66, dist: 38, null: 0, size: 4,
+				hist: testHistogram{
+					{4, 4, 4, 3},
+					{5, 5, 5, 5},
+					{6, 6, 6, 8},
+					{7, 7, 7, 9},
+					{8, 8, 8, 12},
+					{3, 3, 2, 15},
+				},
+			},
+		},
+		{
+			// Multiple buckets at upper bound, overlap at upper
+			// bound with mid-bucket overlap
+			initial: &testStat{
+				at: 2, row: 24, dist: 12, null: 0, size: 3,
+				hist: testHistogram{
+					{3, 3, 2, 0},
+					{3, 3, 2, 5},
+					{3, 3, 2, 8},
+					{3, 3, 2, 15},
+				},
+			},
+			partial: &testStat{
+				at: 2, row: 44, dist: 26, null: 0, size: 8,
+				hist: testHistogram{
+					{4, 4, 4, 9},
+					{5, 5, 5, 11},
+					{6, 6, 6, 14},
+					{7, 7, 7, 18},
+				},
+			},
+			expected: &testStat{
+				at: 2, row: 62, dist: 65, null: 0, size: 6,
+				hist: testHistogram{
+					{3, 3, 2, 0},
+					{3, 3, 2, 5},
+					{3, 3, 2, 8},
+					{4, 4, 4, 9},
+					{5, 5, 5, 11},
+					{6, 6, 6, 15},
+					{7, 7, 7, 18},
+				},
+			},
+		},
+		{
+			// Multiple buckets at both upper and lower bounds, overlap
+			// in both places with mid-bucket overlap
+			initial: &testStat{
+				at: 2, row: 62, dist: 65, null: 0, size: 6,
+				hist: testHistogram{
+					{3, 3, 2, 0},
+					{3, 3, 2, 5},
+					{3, 3, 2, 8},
+					{4, 4, 4, 9},
+					{5, 5, 5, 11},
+					{6, 6, 6, 15},
+					{7, 7, 7, 18},
+				},
+			},
+			partial: &testStat{
+				at: 2, row: 48, dist: 34, null: 0, size: 2,
+				hist: testHistogram{
+					{1, 2, 3, -1},
+					{4, 5, 6, 1},
+
+					{0, 0, 0, 15},
+					{10, 11, 12, 20},
+				},
+			},
+			expected: &testStat{
+				hist: testHistogram{
+					{1, 2, 3, -1},
+					{3, 3, 2, 0},
+					{4, 5, 6, 1},
+					{3, 3, 2, 5},
+					{3, 3, 2, 8},
+					{4, 4, 4, 9},
+					{5, 5, 5, 11},
+					{6, 6, 6, 15},
+					{7, 7, 7, 18},
+				},
+			},
+		},
+	}
+	ctx := context.Background()
+	for i, tc := range testCases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			initial := tc.initial.toTableStatistic("stat", i)
+			partial := tc.partial.toTableStatistic("stat", i)
+			expected := tc.expected.toTableStatistic("__forecast__", i)
+			merged, err := mergeStatistics(ctx, initial, partial)
+			if err != nil {
+				if !tc.err {
+					t.Errorf("test case %d unexpected mergeStatistics err: %v", i, err)
+				}
+				return
+			}
+			if tc.err {
+				t.Errorf("test case %d expected mergeStatistics err, was:\n%s", i, merged)
+				return
+			}
+			//fmt.Printf("merged stat: %s", merged)
+			if !reflect.DeepEqual(merged, expected) {
+				t.Errorf("test case %d incorrect merge\n%s\nexpected\n%s", i, merged, expected)
+			}
+		})
+	}
+}
+
 type testStat struct {
 	at, row, dist, null, size uint64
 	hist                      testHistogram
+	partial                   string
 }
 
 func (ts *testStat) toTableStatistic(name string, tableID int) *TableStatistic {
@@ -619,15 +815,16 @@ func (ts *testStat) toTableStatistic(name string, tableID int) *TableStatistic {
 	}
 	stat := &TableStatistic{
 		TableStatisticProto: TableStatisticProto{
-			TableID:       catid.DescID(tableID),
-			StatisticID:   0,
-			Name:          name,
-			ColumnIDs:     []descpb.ColumnID{1},
-			CreatedAt:     testStatTime(ts.at),
-			RowCount:      ts.row,
-			DistinctCount: ts.dist,
-			NullCount:     ts.null,
-			AvgSize:       ts.size,
+			TableID:          catid.DescID(tableID),
+			StatisticID:      0,
+			Name:             name,
+			ColumnIDs:        []descpb.ColumnID{1},
+			CreatedAt:        testStatTime(ts.at),
+			RowCount:         ts.row,
+			DistinctCount:    ts.dist,
+			NullCount:        ts.null,
+			AvgSize:          ts.size,
+			PartialPredicate: ts.partial,
 		},
 	}
 	if ts.hist != nil {

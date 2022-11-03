@@ -172,7 +172,8 @@ func (p *planner) ShowTableStats(ctx context.Context, n *tree.ShowTableStats) (p
 			}()
 
 			if _, withForecast := opts[showTableStatsOptForecast]; withForecast {
-				observed := make([]*stats.TableStatistic, 0, len(rows))
+				fullStatsObserved := make([]*stats.TableStatistic, 0, len(rows))
+				partialStatsObserved := make([]*stats.TableStatistic, 0, len(rows))
 				for _, row := range rows {
 					// Skip stats on dropped columns.
 					colIDs := row[columnIDsIdx].(*tree.DArray).Array
@@ -201,16 +202,29 @@ func (p *planner) ShowTableStats(ctx context.Context, n *tree.ShowTableStats) (p
 							return nil, err
 						}
 					}
-					observed = append(observed, obs)
+					if obs.PartialPredicate == "" {
+						fullStatsObserved = append(fullStatsObserved, obs)
+					} else {
+						partialStatsObserved = append(partialStatsObserved, obs)
+					}
 				}
 
 				// Reverse the list to sort by CreatedAt descending.
-				for i := 0; i < len(observed)/2; i++ {
-					j := len(observed) - i - 1
-					observed[i], observed[j] = observed[j], observed[i]
+				for i := 0; i < len(fullStatsObserved)/2; i++ {
+					j := len(fullStatsObserved) - i - 1
+					fullStatsObserved[i], fullStatsObserved[j] = fullStatsObserved[j], fullStatsObserved[i]
 				}
 
-				forecasts := stats.ForecastTableStatistics(ctx, observed)
+				var forecasts []*stats.TableStatistic
+				if len(partialStatsObserved) == 0 {
+					forecasts = stats.ForecastTableStatistics(ctx, fullStatsObserved)
+				} else {
+					for i := 0; i < len(partialStatsObserved)/2; i++ {
+						j := len(partialStatsObserved) - i - 1
+						partialStatsObserved[i], partialStatsObserved[j] = partialStatsObserved[j], partialStatsObserved[i]
+					}
+					forecasts = stats.ForecastTableStatisticsUsingPartial(ctx, partialStatsObserved, fullStatsObserved)
+				}
 
 				// Iterate in reverse order to match the ORDER BY "columnIDs".
 				for i := len(forecasts) - 1; i >= 0; i-- {

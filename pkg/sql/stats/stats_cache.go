@@ -770,7 +770,8 @@ ORDER BY "createdAt" DESC, "columnIDs" DESC, "statisticID" DESC
 		return nil, err
 	}
 
-	var statsList []*TableStatistic
+	var fullStatsList []*TableStatistic
+	var partialStatsList []*TableStatistic
 	var ok bool
 	for ok, err = it.Next(ctx); ok; ok, err = it.Next(ctx) {
 		stats, err := sc.parseStats(ctx, it.Cur(), partialPredicateColVerActive)
@@ -778,16 +779,25 @@ ORDER BY "createdAt" DESC, "columnIDs" DESC, "statisticID" DESC
 			log.Warningf(ctx, "could not decode statistic for table %d: %v", tableID, err)
 			continue
 		}
-		statsList = append(statsList, stats)
+		if stats.PartialPredicate != "" {
+			partialStatsList = append(partialStatsList, stats)
+		} else {
+			fullStatsList = append(fullStatsList, stats)
+		}
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if forecast {
-		forecasts := ForecastTableStatistics(ctx, statsList)
-		statsList = append(forecasts, statsList...)
+		var forecasts []*TableStatistic
+		if len(partialStatsList) > 0 {
+			forecasts = ForecastTableStatisticsUsingPartial(ctx, partialStatsList, fullStatsList)
+		} else {
+			forecasts = ForecastTableStatistics(ctx, fullStatsList)
+		}
+		fullStatsList = append(forecasts, fullStatsList...)
 	}
 
-	return statsList, nil
+	return fullStatsList, nil
 }
